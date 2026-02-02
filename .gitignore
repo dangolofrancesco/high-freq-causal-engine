@@ -224,3 +224,8 @@ __marimo__/
 test_cpp.py
 engine_core.cpython-*.so
 engine_core.cpp
+
+# Ignore data files
+data/
+*.duckdb
+*.db

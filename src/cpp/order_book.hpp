@@ -1,4 +1,4 @@
-#pragma once // Previene che il file venga incluso due volte (Header Guard)
+#pragma once 
 #include <vector>
 #include <memory>
 #include <mutex>

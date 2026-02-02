@@ -1,5 +1,6 @@
-import engine_core
 import time
+
+import engine_core
 
 print("--- TEST PAIR TRADING STRATEGY ---")
 
@@ -9,12 +10,14 @@ try:
     strategy = engine_core.PairStrategy(0.7)
     print("✅ C++ module loaded successfully.")
 except AttributeError:
-    print("❌ ERROR: The engine_core module does not contain PairStrategy. Did you recompile?")
+    print(
+        "❌ ERROR: The engine_core module does not contain PairStrategy. Did you recompile?"
+    )
     exit()
 
 # Constants for readability
-LEADER = 0   # BTC
-FOLLOWER = 1 # ETH
+LEADER = 0  # BTC
+FOLLOWER = 1  # ETH
 BID = True
 ASK = False
 
@@ -52,7 +55,7 @@ else:
 
 # 4. Leader Crash Situation (Panic Selling)
 print("\n[T=2] Panic Selling on BTC (Reset Strategy)...")
-strategy = engine_core.PairStrategy(0.7) # Reset to clear the books
+strategy = engine_core.PairStrategy(0.7)  # Reset to clear the books
 
 # Insert many sellers (ASKS)
 for _ in range(20):

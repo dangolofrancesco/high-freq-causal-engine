@@ -1,107 +1,105 @@
-import yfinance as yf
-import pandas as pd
 import logging
+import time
+
+import ccxt
 import numpy as np
+import pandas as pd
 from storage import MarketDataDB
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 class DataLoader:
     """
-    Handles the ETL process (Extract, Transform, Load) for market data.
-    It fetches raw data from external providers (Yahoo Finance), cleans it,
-    and stores it into the local DuckDB instance.
+    Handles ETL for High-Frequency Trading data from various exchanges into DuckDB using CCXT.
+    Fetches raw tick-by-tick trades from Crypto Exchanges (Kraken).
     """
 
     def __init__(self, db: MarketDataDB):
         """
         Initializes the DataLoader with a MarketDataDB instance.
-        
+
         Args:
             db (MarketDataDB): An instance of MarketDataDB for data storage.
         """
         self.db = db
-    
-    def fetch_and_store(self, symbol: str, period: str = "1mo", interval: str = "1h") -> None:
+        # Initialize CCXT exchange instance (Kraken)
+        self.exchange = ccxt.kraken()
+
+    def fetch_and_store_trades(self, symbol: str, limit: int = 1000) -> None:
         """
-        Downloads historical OHLCV data from Yahoo Finance, cleans it,
-        and stores it into the DuckDB database.
-        
+        Fetches the most recent trades (ticks) for a symbol.
+
         Args:
-            symbol (str): The ticker symbol to fetch data for (e.g., 'BTC-USD').
-            period (str): The period over which to fetch data (e.g., '1mo').
-            interval (str): The data interval (e.g., '1h').
+            symbol (str): Symbol in CCXT format (e.g., 'BTC/USDT').
+            limit (int): Number of recent trades to fetch (Max usually 1000 per call).
         """
-        logging.info(f"Fetching data for {symbol} for period {period} with interval {interval}")
+        logging.info(f"Fetching data for {symbol} with limit {limit}")
 
         try:
-            # Extract data from Yahoo Finance API
-            ticker = yf.Ticker(symbol)
-            df = ticker.history(period=period, interval=interval)
+            # EXTRACT: fectehs recent trades data
+            # Returns a list of dicts: [{'timestamp': 167..., 'price': 23000, 'side': 'buy', ...}]
+            trades = self.exchange.fetch_trades(symbol, limit=limit)
 
-            if df.empty:
-                logging.warning(f"No data fetched for {symbol}.")
+            if not trades:
+                logging.warning(f"No trade data returned for {symbol}.")
                 return
-            
-            # Clean and prepare data
-            # Reset index to have date as a column
-            df.reset_index(inplace=True)
 
-            # Standardize column names to lowercase to match database schema
-            df.columns = [col.lower() for col in df.columns]
+            df = pd.DataFrame(trades)
 
-            # Rename columns to match database schema
-            if 'datetime' in df.columns:
-                df.rename(columns={'datetime': 'timestamp'}, inplace=True)
-            elif 'date' in df.columns:
-                df.rename(columns={'date': 'timestamp'}, inplace=True)
+            # Select only relevant columns for DB
+            df = df[["timestamp", "price", "amount", "side"]]
 
-            # Remove timezone information 
-            if pd.api.types.is_datetime64_any_dtype(df['timestamp']):
-                df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+            # Rename 'amount' to 'quantity' for clarity
+            df.rename(columns={"amount": "quantity"}, inplace=True)
 
-            # Add symbol column
-            df['symbol'] = symbol
+            # Convert 'BTC/USDT' to 'BTC-USD' format for DB consistency
+            clean_symbol = symbol.replace("/", "-")
+            df["symbol"] = clean_symbol
 
-            # Filter relevant columns
-            needed_cols = df[['symbol', 'timestamp', 'open', 'high', 'low', 'close', 'volume']]
+            # convert timestamp from ms to datetime
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
 
-            # Check if all needed columns are present
-            available_cols = needed_cols.columns.tolist()
-            df = df[available_cols]
+            # OPTIMIZE: cast price and quantity to FLOAT4
+            df["price"] = df["price"].astype(np.float32)
+            df["quantity"] = df["quantity"].astype(np.float32)
 
-            # For optimization, explicitly cast float columns to FLOAT4
-            float_cols = ['open', 'high', 'low', 'close', 'volume']
-            for col in float_cols:
-                if col in df.columns:
-                    df[col] = df[col].astype(np.float32)
+            # Manage side: if none, set to 'unknown'
+            df["side"] = df["side"].fillna("unknown")
+
+            # Reorder columns
+            df = df[["symbol", "timestamp", "price", "quantity", "side"]]
 
             # Load data into DuckDB
             conn = self.db.get_connection()
 
             # 'INSERT OR IGNORE' to avoid duplicates based on primary key
-            conn.execute("INSERT OR IGNORE INTO ohlcv SELECT * FROM df")
+            conn.execute("INSERT OR IGNORE INTO trades SELECT * FROM df")
 
-            logging.info(f"Successfully stored {len(df)} rows for {symbol} into the database.")
+            logging.info(
+                f"Successfully stored {len(df)} rows for {symbol} into the database."
+            )
 
         except Exception as e:
             logging.error(f"Error fetching or storing data for {symbol}: {e}")
 
+
 if __name__ == "__main__":
     db = MarketDataDB()
     loader = DataLoader(db)
-    
-    # Test assets: Bitcoin and Ethereum (High correlation pair)
-    assets = ["BTC-USD", "ETH-USD"] 
-    
+
+    assets = ["BTC/USD", "ETH/USD"]
+
     for asset in assets:
-        loader.fetch_and_store(asset)
-    
+        loader.fetch_and_store_trades(asset, limit=1000)
 
     con = db.get_connection()
-    count = con.execute("SELECT count(*) FROM ohlcv").fetchone()
-    print(f"\nTotal rows in database: {count[0]}")
-    
-    # Show sample data with types to verify FLOAT4
-    print("\nData Sample:")
-    print(con.execute("SELECT * FROM ohlcv LIMIT 3").df())
+
+    # Count total ticks stored
+    count = con.execute("SELECT count(*) FROM trades").fetchone()
+    print(f"\nTotal ticks in database: {count[0]}")
+
+    print("\nTick Data Sample (What the C++ Engine will eat):")
+    print(con.execute("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 5").df())
