@@ -228,4 +228,4 @@ engine_core.cpp
 # Ignore data files
 data/
 *.duckdb
-*.db
+*.dbdata/
