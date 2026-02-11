@@ -4,7 +4,7 @@ import time
 import ccxt
 import numpy as np
 import pandas as pd
-from storage import MarketDataDB
+from .storage import MarketDataDB
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
