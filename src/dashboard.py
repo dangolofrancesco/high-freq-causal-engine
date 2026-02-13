@@ -267,8 +267,8 @@ with st.expander(" Read Detailed Explanation", expanded=True):
     ### Strategies for improvement 
     While Model B outperforms Model A, it can be further optimized:
     
-    * ** Exit on Neutral (Mean Reversion):** Currently, Model B holds the Short position forever until a Buy signal appears. A better approach is to close the position when the OBI returns to the "Neutral Zone" (e.g., between -0.1 and +0.1), locking in profits earlier.
+    * **Exit on Neutral (Mean Reversion):** Currently, Model B holds the Short position forever until a Buy signal appears. A better approach is to close the position when the OBI returns to the "Neutral Zone" (e.g., between -0.1 and +0.1), locking in profits earlier.
     * **Gauging Volatility (Z-Score):** Instead of a fixed threshold (e.g., 0.3), we should use a dynamic threshold based on standard deviation ($Z = (x - \mu) / \sigma$). This adapts the bot to calm vs. chaotic market conditions.
-    * ** Transaction Costs:** This simulation assumes zero fees. In a real environment, flipping positions frequently incurs taker fees. We must incorporate a cost model to ensure the alpha survives real-world friction.
+    * **Transaction Costs:** This simulation assumes zero fees. In a real environment, flipping positions frequently incurs taker fees. We must incorporate a cost model to ensure the alpha survives real-world friction.
     """)
 

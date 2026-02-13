@@ -229,3 +229,4 @@ engine_core.cpp
 data/
 *.duckdb
 *.dbdata/
+README_1.md
