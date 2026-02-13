@@ -6,6 +6,8 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Latency](https://img.shields.io/badge/latency-%3C5%C2%B5s-orange)
 
+> 🚧 **Project Status:** Research Prototype (Alpha). Optimized for local backtesting and simulation. Not production-ready for live capital execution.
+
 An **Event-Driven Hybrid Trading Engine** engineered for ultra-low latency crypto arbitrage.
 It combines a **C++ Core** for high-performance signal generation with a **Python** orchestration layer for backtesting and visualization. The system detects **Lead-Lag relationships** between correlated assets (e.g., BTC/ETH) using Order Book Imbalance (OBI).
 
@@ -106,17 +108,43 @@ The **C++ Engine** (`engine_core`) requires **no modification** to process new a
 * C++ Compiler (GCC/Clang/MSVC)
 * Poetry (Dependency Manager)
 
-### Clone and Install
+### 1. Clone & Install
 ```bash
-git clone [https://github.com/YOUR_USERNAME/high-freq-causal-engine.git](https://github.com/YOUR_USERNAME/high-freq-causal-engine.git)
+git clone [https://github.com/dangolofrancesco/high-freq-causal-engine.git](https://github.com/dangolofrancesco/high-freq-causal-engine.git)
 cd high-freq-causal-engine
 poetry install
 ```
+
+### 2. Build the optimized C++ OrderBook module using pybind11:
+
+```bash
+poetry run python setup.py build_ext --inplace
+```
+
+### 3. Fetch the sample tick data and launch the interactive dashboard:
+The data loader fetches public historical tick data (Trades/OHLCV) via ccxt. No API keys are required for fetching public market history.
+
+```bash
+# 1. Ingest Data (Kraken/Simulated)
+poetry run python src/engine/data_loader.py
+```
+_By default, this downloads the latest tick data for BTC/USD and ETH/USD from Kraken._
+
+```bash
+# 2. Launch Dashboard
+poetry run streamlit run src/dashboard.py
+```
+
+**Note:** The dashboard will open automatically in your browser at http://localhost:8501
+
 --- 
 
 ## Performance Benchmarks
 
-Benchmarks run on MacBook Pro Intel I9:
+**Backtest Context:**
+* **Period:** High-volatility window (1 Hour sample)
+* **Data Granularity:** Tick-by-tick (Real Trades)
+* **Exchange:** Kraken (BTC/USD vs ETH/USD)
 
 | Metric | Result |
 | :--- | :--- |
@@ -126,5 +154,36 @@ Benchmarks run on MacBook Pro Intel I9:
 | **ROI (Sample Period)** | +0.05% (vs Buy & Hold -0.12%) |
 
 ---
-## License
+## Quick Start (End-to-End Example)
+Want to test the engine logic without running the full dashboard? Here is a minimal 5-line example:
+
+```python
+import engine_core
+
+# 1. Initialize Strategy with Sensitivity Threshold 0.3
+strategy = engine_core.PairStrategy(0.3)
+
+# 2. Feed a "Buy" Tick for the Leader Asset (Symbol 0 = BTC)
+# Args: (SymbolType, Price, Quantity, IsBid)
+strategy.on_market_data(0, 50000.0, 1.5, True) 
+
+# 3. Check for Signals on the Follower Asset
+signal = strategy.check_signal() 
+
+print(f"Engine Signal: {signal}") # Output: 1 (Buy), -1 (Sell), or 0 (Hold)
+```
+
+---
+## License
 Distributed under the MIT License. See LICENSE for more information.
+
+
+
+## ⚠️ Legal Disclaimer
+
+**EDUCATIONAL SOFTWARE ONLY.**
+This software is a research prototype designed for analyzing market microstructure and testing high-frequency trading logic.
+* **No Financial Advice:** Nothing in this repository constitutes financial investment advice.
+* **Risk Warning:** Cryptocurrency trading involves substantial risk of loss.
+* **Use at Your Own Risk:** The authors accept no liability for any financial losses incurred through the use of this software. Past performance in backtests is not indicative of future results in live markets.
+
